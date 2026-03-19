@@ -1,1 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPUB 翻译器</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0e0e0e;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --accent: #e8c84a;
+      --accent2: #c4a832;
+      --text: #f0ece0;
+      --text-muted: #888;
+      --success: #4caf82;
+      --error: #e05a5a;
+    }
 
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Serif SC', serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px;
+      background-image: radial-gradient(ellipse at 20% 20%, #1a1600 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 80%, #0a1a0e 0%, transparent 60%);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      animation: fadeDown 0.8s ease both;
+    }
+
+    .header .badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 4px 12px;
+      border-radius: 2px;
+      letter-spacing: 3px;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      color: var(--text);
+    }
+
+    h1 span {
+      color: var(--accent);
+      position: relative;
+    }
+
+    .subtitle {
+      margin-top: 16px;
+      color: var(--text-muted);
+      font-size: 16px;
+      font-weight: 400;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 640px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 40px;
+      animation: fadeUp 0.8s ease 0.2s both;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 4px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(232, 200, 74, 0.04);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .drop-zone p {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .drop-zone .file-name {
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    .settings {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field label {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .field select, .field input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+    }
+
+    .field select:focus, .field input:focus {
+      border-color: var(--accent);
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    .btn {
+      width: 100%;
+      margin-top: 28px;
+      padding: 16px;
+      background: var(--accent);
+      color: #0e0e0e;
+      border: none;
+      border-radius: 2px;
+      font-family: 'Noto Serif SC', serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--accent2);
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .progress-wrap {
+      margin-top: 24px;
+      display: none;
+    }
+
+    .progress-wrap.show { display: block; }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.4s ease;
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.success { background: rgba(76, 175, 130, 0.1); border: 1px solid var(--success); color: var(--success); }
+    .status.error { background: rgba(224, 90, 90, 0.1); border: 1px solid var(--error); color: var(--error); }
+    .status.info { background: rgba(232, 200, 74, 0.08); border: 1px solid var(--accent); color: var(--accent); }
+
+    .download-btn {
+      display: none;
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      background: transparent;
+      color: var(--success);
+      border: 1px solid var(--success);
+      border-radius: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .download-btn.show { display: block; }
+    .download-btn:hover { background: rgba(76, 175, 130, 0.1); }
+
+    .features {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      animation: fadeUp 0.8s ease 0.4s both;
+    }
+
+    .feature {
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .feature .icon { font-size: 24px; margin-bottom: 8px; }
+    .feature h3 { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+    .feature p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+    .footer {
+      margin-top: 60px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      animation: fadeUp 0.8s ease 0.6s both;
+    }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 480px) {
+      .settings { grid-template-columns: 1fr; }
+      .features { grid-template-columns: 1fr; }
+      .card { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">AI · EPUB · 翻译</div>
+  <h1>电子书<span>智能翻译</span></h1>
+  <p class="subtitle">上传 .epub 文件，AI 自动翻译，保留原始排版</p>
+</div>
+
+<div class="card">
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".epub" />
+    <span class="drop-icon">📖</span>
+    <p>拖拽 .epub 文件到此处<br />或点击选择文件</p>
+    <div class="file-name" id="fileName"></div>
+  </div>
+
+  <div class="settings">
+    <div class="field">
+      <label>源语言</label>
+      <select id="sourceLang">
+        <option value="en">English（英语）</option>
+        <option value="ja">日本語（日语）</option>
+        <option value="ko">한국어（韩语）</option>
+        <option value="fr">Français（法语）</option>
+        <option value="de">Deutsch（德语）</option>
+        <option value="es">Español（西班牙语）</option>
+        <option value="ru">Русский（俄语）</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>目标语言</label>
+      <select id="targetLang">
+        <option value="zh">中文（简体）</option>
+        <option value="en">English（英语）</option>
+        <option value="ja">日本語（日语）</option>
+        <option value="ko">한국어（韩语）</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn" id="translateBtn" disabled>开始翻译</button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label">
+      <span id="progressText">正在翻译...</span>
+      <span id="progressPct">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <a class="download-btn" id="downloadBtn" download>⬇ 下载翻译后的 EPUB</a>
+</div>
+
+<div class="features">
+  <div class="feature">
+    <div class="icon">🔒</div>
+    <h3>隐私安全</h3>
+    <p>文件翻译后立即删除，不存储任何内容</p>
+  </div>
+  <div class="feature">
+    <div class="icon">✨</div>
+    <h3>保留排版</h3>
+    <p>完整保留原书格式、章节结构与样式</p>
+  </div>
+  <div class="feature">
+    <div class="icon">⚡</div>
+    <h3>火山引擎</h3>
+    <p>字节跳动AI翻译，国内直连，速度快</p>
+  </div>
+</div>
+
+<div class="footer">Powered by 火山引擎 · 开源免费</div>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const fileName = document.getElementById('fileName');
+  const translateBtn = document.getElementById('translateBtn');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
+  const progressPct = document.getElementById('progressPct');
+  const status = document.getElementById('status');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  let selectedFile = null;
+
+  // 文件选择
+  fileInput.addEventListener('change', e => {
+    handleFile(e.target.files[0]);
+  });
+
+  // 拖拽
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file || !file.name.endsWith('.epub')) {
+      showStatus('请选择 .epub 格式的文件', 'error');
+      return;
+    }
+    selectedFile = file;
+    fileName.textContent = `✓ ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+    translateBtn.disabled = false;
+    hideStatus();
+    downloadBtn.classList.remove('show');
+  }
+
+  // 翻译
+  translateBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    translateBtn.disabled = true;
+    progressWrap.classList.add('show');
+    downloadBtn.classList.remove('show');
+    hideStatus();
+    animateProgress(0, 30, 2000);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('source_lang', document.getElementById('sourceLang').value);
+      formData.append('target_lang', document.getElementById('targetLang').value);
+
+      showStatus('正在上传文件...', 'info');
+      animateProgress(30, 60, 3000);
+
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        body: formData,
+      });
+
+      animateProgress(60, 95, 5000);
+      showStatus('翻译中，请稍候...', 'info');
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '翻译失败');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const outName = selectedFile.name.replace('.epub', `_${document.getElementById('targetLang').value}.epub`);
+
+      animateProgress(95, 100, 500);
+      setTimeout(() => {
+        progressWrap.classList.remove('show');
+        showStatus('✓ 翻译完成！点击下方按钮下载', 'success');
+        downloadBtn.href = url;
+        downloadBtn.download = outName;
+        downloadBtn.classList.add('show');
+        translateBtn.disabled = false;
+      }, 600);
+
+    } catch (err) {
+      progressWrap.classList.remove('show');
+      showStatus(`✗ ${err.message}`, 'error');
+      translateBtn.disabled = false;
+    }
+  });
+
+  function animateProgress(from, to, duration) {
+    const start = Date.now();
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / duration, 1);
+      const val = Math.round(from + (to - from) * p);
+      progressFill.style.width = val + '%';
+      progressPct.textContent = val + '%';
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function showStatus(msg, type) {
+    status.textContent = msg;
+    status.className = `status show ${type}`;
+  }
+
+  function hideStatus() {
+    status.className = 'status';
+  }
+</script>
+</body>
+</html>
