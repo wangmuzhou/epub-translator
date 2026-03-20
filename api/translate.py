@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import hmac
 import io
@@ -28,11 +27,12 @@ SKIP_TAGS         = {"script","style","code","pre","svg","math"}
 
 @app.route("/", methods=["GET"])
 def index():
-    return jsonify({"status": "ok", "message": "EPUB 翻译 API 正常运行"})
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/translate", methods=["POST"])
 def translate():
+    print(f"收到请求, ACCESS_KEY长度: {len(ACCESS_KEY)}, SECRET_KEY长度: {len(SECRET_KEY)}", flush=True)
     if not ACCESS_KEY or not SECRET_KEY:
         return jsonify({"error": "服务器未配置翻译 API Key"}), 500
     if "file" not in request.files:
@@ -41,16 +41,19 @@ def translate():
     source_lang = request.form.get("source_lang", "en")
     target_lang = request.form.get("target_lang", "zh")
     epub_bytes  = file.read()
+    print(f"文件大小: {len(epub_bytes)} bytes, 源语言: {source_lang}, 目标语言: {target_lang}", flush=True)
     if len(epub_bytes) > 50 * 1024 * 1024:
         return jsonify({"error": "文件超过 50MB 限制"}), 400
     try:
         result = translate_epub_bytes(epub_bytes, source_lang, target_lang)
+        print(f"翻译完成, 输出大小: {len(result)} bytes", flush=True)
         return Response(
             result,
             mimetype="application/epub+zip",
             headers={"Content-Disposition": 'attachment; filename="translated.epub"'}
         )
     except Exception as e:
+        print(f"翻译失败: {e}", flush=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -61,13 +64,14 @@ def translate_epub_bytes(epub_bytes, source_lang, target_lang):
             raw_files[name] = zf.read(name)
     opf_path   = get_opf_path(raw_files.get("META-INF/container.xml", b""))
     xhtml_list = get_spine(opf_path, raw_files.get(opf_path, b""))
+    print(f"找到 {len(xhtml_list)} 个内容文件", flush=True)
     for path in xhtml_list:
         raw = raw_files.get(path)
         if raw:
             try:
                 raw_files[path] = translate_xhtml(raw, source_lang, target_lang)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"文件 {path} 翻译失败: {e}", flush=True)
     return pack_epub(raw_files)
 
 
@@ -110,14 +114,17 @@ def translate_xhtml(raw, source_lang, target_lang):
         root = ET.fromstring(text)
     except ET.ParseError:
         return raw
-    for el, inner in collect_nodes(root):
+    nodes = collect_nodes(root)
+    print(f"找到 {len(nodes)} 个文本节点", flush=True)
+    for el, inner in nodes:
         if not inner.strip():
             continue
         try:
             translated = volc_translate(inner, source_lang, target_lang)
             set_inner(el, translated)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"节点翻译失败: {e} | 原文: {inner[:50]}", flush=True)
+            raise
     result = ET.tostring(root, encoding="unicode")
     if text.startswith("<?xml"):
         result = '<?xml version="1.0" encoding="UTF-8"?>\n' + result
@@ -198,6 +205,7 @@ def volc_translate(text, source_lang, target_lang):
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         data = json.loads(resp.read().decode())
+    print(f"火山引擎返回: {data}", flush=True)
     return data["TranslationList"][0]["Translation"]
 
 
