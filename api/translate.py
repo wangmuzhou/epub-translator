@@ -65,6 +65,7 @@ def translate_epub_bytes(epub_bytes, source_lang, target_lang):
     opf_path   = get_opf_path(raw_files.get("META-INF/container.xml", b""))
     xhtml_list = get_spine(opf_path, raw_files.get(opf_path, b""))
     print(f"找到 {len(xhtml_list)} 个内容文件", flush=True)
+    print(f"OPF路径: {opf_path}, 所有文件: {list(raw_files.keys())[:15]}", flush=True)
     for path in xhtml_list:
         raw = raw_files.get(path)
         if raw:
