@@ -449,7 +449,7 @@
       showStatus('正在上传文件...', 'info');
       animateProgress(30, 60, 3000);
 
-      const res = await fetch('/api/translate', {
+      const res = await fetch('https://epub-translator-production.up.railway.app/api/translate', {
         method: 'POST',
         body: formData,
       });
